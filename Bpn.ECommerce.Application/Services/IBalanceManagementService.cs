@@ -10,5 +10,9 @@ namespace Bpn.ECommerce.Application.Services
     public interface IBalanceManagementService
     {
         Task<Result<ProductResponse>> GetProductsAsync();
+        Task<Result<BalanceResponse>> GetBalanceAsync();
+        Task<Result<PreOrderResponse>> CreatePreOrderAsync(CreatePreOrderRequest request);
+        Task<Result<PreOrderResponse>> UpdatePreOrderAsync(PreOrderRequest request);
+        Task<Result<PreOrderResponse>> RemovePreOrderAsync(PreOrderRequest request);
     }
 }
