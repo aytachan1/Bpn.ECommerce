@@ -1,4 +1,5 @@
 ﻿using Bpn.ECommerce.Domain.Entities;
+using Bpn.ECommerce.Domain.Generic.Result;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,6 +10,6 @@ namespace Bpn.ECommerce.Application.Services
 {
     public interface IOrderCalculationService
     {
-        decimal CalculateTotalPrice(List<OrderItem> orderList);
+        Result<decimal> CalculateTotalPrice(List<OrderItem> orderList);
     }
 }

@@ -7,6 +7,7 @@ using FluentValidation;
 using Bpn.ECommerce.Application.Services;
 using Bpn.ECommerce.Infrastructure.Services;
 using Bpn.ECommerce.Application.Features.Balance.Notifications;
+using Bpn.ECommerce.Application.Features.Balance.Queries;
 
 namespace Bpn.ECommerce.WebAPI.Controllers
 {
@@ -28,7 +29,6 @@ namespace Bpn.ECommerce.WebAPI.Controllers
                 return BadRequest("Order list can not be null");
             }
 
-          
             //duplicatae check valditore taşınacak
             var productIdSet = new HashSet<Guid>();
             foreach (var item in orderList)
@@ -38,11 +38,26 @@ namespace Bpn.ECommerce.WebAPI.Controllers
                     return BadRequest($"Duplicate ProductId found: {item.ProductId}");
                 }
             }
-            decimal totalPrice = _orderCalculationService.CalculateTotalPrice(orderList);
+            var totalPriceResult = _orderCalculationService.CalculateTotalPrice(orderList);
+            if (!totalPriceResult.IsSuccessful)
+            {
+                return BadRequest(totalPriceResult.ErrorMessages);
+            }
+
+            var balanceResult = await _mediator.Send(new GetBalanceQuery(), cancellationToken);
+            if (!balanceResult.Success || balanceResult.Data == null)
+            {
+                return StatusCode(500, "Failed to retrieve balance.");
+            }
+
+            if (balanceResult.Data.AvailableBalance < totalPriceResult.Data)
+            {
+                return BadRequest("Insufficient balance to create pre-order.");
+            }
 
             CreatePreOrderCommand command = new CreatePreOrderCommand
             {
-                Amount = totalPrice,
+                Amount = totalPriceResult.Data,
                 OrderId = Guid.NewGuid().ToString()
             };
             var result = await _mediator.Send(command, cancellationToken);
