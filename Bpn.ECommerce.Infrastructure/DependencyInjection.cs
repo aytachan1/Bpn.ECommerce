@@ -69,6 +69,7 @@ namespace Bpn.ECommerce.Infrastructure
             ;
 
             services.AddHttpClient<IBalanceManagementService, BalanceManagementService>();
+            services.AddHttpClient<IOrderCalculationService, OrderCalculationService>();
 
 
             return services;

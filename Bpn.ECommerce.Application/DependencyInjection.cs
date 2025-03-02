@@ -1,4 +1,5 @@
 ﻿using Bpn.ECommerce.Application.Behaviors;
+using Bpn.ECommerce.Application.Behaviors.IncomingValidations;
 using Bpn.ECommerce.Application.Services;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,8 +17,6 @@ namespace Bpn.ECommerce.Application
                 conf.RegisterServicesFromAssemblies(typeof(DependencyInjection).Assembly);
                 conf.AddOpenBehavior(typeof(ValidationBehavior<,>));
             });
-
-            
 
             services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
 
