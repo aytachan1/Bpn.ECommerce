@@ -5,7 +5,11 @@ using Bpn.ECommerce.Domain.Generic.Result;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Polly;
+using Polly.Bulkhead;
+using Polly.CircuitBreaker;
+using Polly.Fallback;
 using Polly.Retry;
+using Polly.Timeout;
 using System.Net.Http.Json;
 
 namespace Bpn.ECommerce.Infrastructure.Services
@@ -15,6 +19,10 @@ namespace Bpn.ECommerce.Infrastructure.Services
         private readonly HttpClient _httpClient;
         private readonly ILogger<BalanceManagementService> _logger;
         private readonly AsyncRetryPolicy _retryPolicy;
+        private readonly AsyncCircuitBreakerPolicy _circuitBreakerPolicy;
+        private readonly AsyncBulkheadPolicy _bulkheadPolicy;
+        private readonly AsyncTimeoutPolicy _timeoutPolicy;
+        // private readonly AsyncFallbackPolicy<Result<ProductResponse>> _fallbackPolicy; simdilik eklemiyorum belki dagitik yapıda kullanılabilir
         private readonly IMemoryCache _cache;
 
         public BalanceManagementService(HttpClient httpClient, ILogger<BalanceManagementService> logger, IMemoryCache cache)
@@ -30,6 +38,32 @@ namespace Bpn.ECommerce.Infrastructure.Services
                     {
                         _logger.LogWarning($"Retry {retryCount} encountered an error: {exception.Message}. Waiting {timeSpan} before next retry.");
                     });
+
+            _circuitBreakerPolicy = Policy
+                .Handle<HttpRequestException>()
+                .CircuitBreakerAsync(2, TimeSpan.FromMinutes(1),
+                    onBreak: (exception, duration) =>
+                    {
+                        _logger.LogWarning($"Circuit breaker opened for {duration.TotalSeconds} seconds due to: {exception.Message}");
+                    },
+                    onReset: () => _logger.LogInformation("Circuit breaker reset"),
+                    onHalfOpen: () => _logger.LogInformation("Circuit breaker half-open"));
+
+            _bulkheadPolicy = Policy
+                .BulkheadAsync(10, 20,
+                    onBulkheadRejectedAsync: context =>
+                    {
+                        _logger.LogWarning("Bulkhead limit reached, request rejected");
+                        return Task.CompletedTask;
+                    });
+
+            _timeoutPolicy = Policy
+               .TimeoutAsync(10, TimeoutStrategy.Pessimistic, onTimeoutAsync: (context, timespan, task) =>
+               {
+                   _logger.LogWarning($"Timeout after {timespan.TotalSeconds} seconds");
+                   return Task.CompletedTask;
+               });
+
         }
 
         public async Task<Result<ProductResponse>> GetProductsAsync()
@@ -39,8 +73,11 @@ namespace Bpn.ECommerce.Infrastructure.Services
             {
                 return cachedProducts;
             }
-            return await _retryPolicy.ExecuteAsync(async () =>
-            {
+            return await _bulkheadPolicy.ExecuteAsync(() =>
+                     _circuitBreakerPolicy.ExecuteAsync(() =>
+                         _retryPolicy.ExecuteAsync(() =>
+                             _timeoutPolicy.ExecuteAsync(async () =>
+                             {
                 var response = await _httpClient.GetAsync("https://balance-management-pi44.onrender.com/api/products");
                 if (response.IsSuccessStatusCode)
                 {
@@ -74,7 +111,7 @@ namespace Bpn.ECommerce.Infrastructure.Services
                     return Result<ProductResponse>.Failure("An unexpected error occurred");
                 }
                 return task.Result;
-            });
+            }))));
         }
 
         public async Task<Result<BalanceResponse>> GetBalanceAsync()
@@ -84,10 +121,13 @@ namespace Bpn.ECommerce.Infrastructure.Services
             {
                 return cachedBalance;
             }
-            return await _retryPolicy.ExecuteAsync(async () =>
-            {
+            return await _bulkheadPolicy.ExecuteAsync(() =>
+                     _circuitBreakerPolicy.ExecuteAsync(() =>
+                         _retryPolicy.ExecuteAsync(() =>
+                             _timeoutPolicy.ExecuteAsync(async () =>
+                             {
 
-                var response = await _httpClient.GetAsync("https://balance-management-pi44.onrender.com/api/balance");
+                        var response = await _httpClient.GetAsync("https://balance-management-pi44.onrender.com/api/balance");
                 if (response.IsSuccessStatusCode)
                 {
                     var balanceResponse = await response.Content.ReadFromJsonAsync<BalanceResponse>();
@@ -120,14 +160,17 @@ namespace Bpn.ECommerce.Infrastructure.Services
                     return Result<BalanceResponse>.Failure("An unexpected error occurred");
                 }
                 return task.Result;
-            });
+            }))));
         }
 
         public async Task<Result<PreOrderResponse>> CreatePreOrderAsync(CreatePreOrderRequest request)
         {
-            return await _retryPolicy.ExecuteAsync(async () =>
-            {
-                var response = await _httpClient.PostAsJsonAsync("https://balance-management-pi44.onrender.com/api/balance/preorder", request);
+            return await _bulkheadPolicy.ExecuteAsync(() =>
+                     _circuitBreakerPolicy.ExecuteAsync(() =>
+                         _retryPolicy.ExecuteAsync(() =>
+                             _timeoutPolicy.ExecuteAsync(async () =>
+                             {
+                        var response = await _httpClient.PostAsJsonAsync("https://balance-management-pi44.onrender.com/api/balance/preorder", request);
                 if (response.IsSuccessStatusCode)
                 {
                     var preOrderResponse = await response.Content.ReadFromJsonAsync<PreOrderResponse>();
@@ -163,14 +206,17 @@ namespace Bpn.ECommerce.Infrastructure.Services
                     return Result<PreOrderResponse>.Failure("An unexpected error occurred");
                 }
                 return task.Result;
-            });
+            }))));
         }
 
         public async Task<Result<PreOrderResponse>> UpdatePreOrderAsync(PreOrderRequest request)
         {
-            return await _retryPolicy.ExecuteAsync(async () =>
-            {
-                var response = await _httpClient.PostAsJsonAsync("https://balance-management-pi44.onrender.com/api/balance/complete", request);
+            return await _bulkheadPolicy.ExecuteAsync(() =>
+                    _circuitBreakerPolicy.ExecuteAsync(() =>
+                        _retryPolicy.ExecuteAsync(() =>
+                            _timeoutPolicy.ExecuteAsync(async () =>
+                            {
+                        var response = await _httpClient.PostAsJsonAsync("https://balance-management-pi44.onrender.com/api/balance/complete", request);
                 if (response.IsSuccessStatusCode)
                 {
                     var updatePreOrderResponse = await response.Content.ReadFromJsonAsync<PreOrderResponse>();
@@ -211,14 +257,17 @@ namespace Bpn.ECommerce.Infrastructure.Services
                     return Result<PreOrderResponse>.Failure("An unexpected error occurred");
                 }
                 return task.Result;
-            });
+            }))));
         }
 
         public async Task<Result<PreOrderResponse>> RemovePreOrderAsync(PreOrderRequest request)
         {
-            return await _retryPolicy.ExecuteAsync(async () =>
-            {
-                var response = await _httpClient.PostAsJsonAsync("https://balance-management-pi44.onrender.com/api/balance/cancel", request);
+            return await _bulkheadPolicy.ExecuteAsync(() =>
+                    _circuitBreakerPolicy.ExecuteAsync(() =>
+                        _retryPolicy.ExecuteAsync(() =>
+                            _timeoutPolicy.ExecuteAsync(async () =>
+                            {
+                        var response = await _httpClient.PostAsJsonAsync("https://balance-management-pi44.onrender.com/api/balance/cancel", request);
                 if (response.IsSuccessStatusCode)
                 {
                     var removePreOrderResponse = await response.Content.ReadFromJsonAsync<PreOrderResponse>();
@@ -259,7 +308,7 @@ namespace Bpn.ECommerce.Infrastructure.Services
                     return Result<PreOrderResponse>.Failure("An unexpected error occurred");
                 }
                 return task.Result;
-            });
+            }))));
         }
 
        
