@@ -11,6 +11,10 @@ namespace Bpn.ECommerce.Infrastructure.Services
 {
     public class OrderCalculationService : IOrderCalculationService
     {
+        public OrderCalculationService(IOrderCalculationService orderCalculationService)
+        {
+                
+        }
         public Result<decimal> CalculateTotalPrice(List<OrderItem> orderList)
         {
             decimal totalPrice = 0;
@@ -26,7 +30,7 @@ namespace Bpn.ECommerce.Infrastructure.Services
             return Result<decimal>.Succeed(totalPrice);
         }
 
-        private Result<decimal> GetProductPriceById(Guid productId, int quantity)
+        public Result<decimal> GetProductPriceById(Guid productId, int quantity)
         {
             var product = GetProductById(productId);
             if (product == null)
@@ -42,7 +46,7 @@ namespace Bpn.ECommerce.Infrastructure.Services
             return Result<decimal>.Succeed(product.Price * quantity);
         }
 
-        private ProductEntity GetProductById(Guid productId)
+        public ProductEntity GetProductById(Guid productId)
         {
             //Burada datayı birşekilde database e yükleyip ordan alıyoruz gibi düşünebiliriz.
             return new ProductEntity

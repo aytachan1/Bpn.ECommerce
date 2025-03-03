@@ -8,8 +8,12 @@ using System.Threading.Tasks;
 
 namespace Bpn.ECommerce.Application.Services
 {
+    
     public interface IOrderCalculationService
     {
         Result<decimal> CalculateTotalPrice(List<OrderItem> orderList);
+        Result<decimal> GetProductPriceById(Guid productId, int quantity);
+        ProductEntity GetProductById(Guid productId);
+
     }
 }
