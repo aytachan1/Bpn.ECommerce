@@ -7,7 +7,7 @@ using System;
 using System.Collections.Generic;
 using Xunit;
 
-namespace Bpn.ECommerce.Tests.Unit.OrderCalculationUnitTests
+namespace Bpn.ECommerce.Tests.Unit.ServiceUnitTests
 {
     public class OrderCalculationServiceTests
     {
