@@ -65,8 +65,7 @@ namespace Bpn.ECommerce.Infrastructure
 
             services.AddHealthChecks()
             .AddCheck("health-check", () => HealthCheckResult.Healthy())
-            .AddDbContextCheck<ApplicationDbContext>()
-            ;
+            .AddDbContextCheck<ApplicationDbContext>();
 
             services.AddHttpClient<IBalanceManagementService, BalanceManagementService>();
             services.AddHttpClient<IOrderCalculationService, OrderCalculationService>();
