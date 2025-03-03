@@ -11,6 +11,10 @@ using Polly.Fallback;
 using Polly.Retry;
 using Polly.Timeout;
 using System.Net.Http.Json;
+using OpenTelemetry.Trace;
+using OpenTelemetry.Metrics;
+using System.Diagnostics.Metrics;
+using System.Diagnostics;
 
 namespace Bpn.ECommerce.Infrastructure.Services
 {
@@ -24,6 +28,12 @@ namespace Bpn.ECommerce.Infrastructure.Services
         private readonly AsyncTimeoutPolicy _timeoutPolicy;
         // private readonly AsyncFallbackPolicy<Result<ProductResponse>> _fallbackPolicy; simdilik eklemiyorum belki dagitik yapıda kullanılabilir
         private readonly IMemoryCache _cache;
+        private static readonly ActivitySource ActivitySource = new("Bpn.ECommerce.Infrastructure.Services.BalanceManagementService");
+        private static readonly Meter Meter = new("Bpn.ECommerce.Infrastructure.Services.BalanceManagementService");
+        private static readonly Counter<int> RequestCounter = Meter.CreateCounter<int>("balance_management_requests");
+        private static readonly Histogram<double> ResponseTimeHistogram = Meter.CreateHistogram<double>("balance_management_response_time", "ms", "Response time in milliseconds");
+
+
 
         public BalanceManagementService(HttpClient httpClient, ILogger<BalanceManagementService> logger, IMemoryCache cache)
         {
@@ -68,9 +78,15 @@ namespace Bpn.ECommerce.Infrastructure.Services
 
         public async Task<Result<ProductResponse>> GetProductsAsync()
         {
+            using var activity = ActivitySource.StartActivity("GetProductsAsync");
+            RequestCounter.Add(1);
+            var stopwatch = Stopwatch.StartNew();
+
             var cacheKey = "products";
             if (_cache.TryGetValue(cacheKey, out var cachedProductsObj) && cachedProductsObj is Result<ProductResponse> cachedProducts)
             {
+                stopwatch.Stop();
+                ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
                 return cachedProducts;
             }
             return await _bulkheadPolicy.ExecuteAsync(() =>
@@ -88,11 +104,15 @@ namespace Bpn.ECommerce.Infrastructure.Services
                                          var result = Result<ProductResponse>.Succeed(productResponse);
                                          _cache.Set(cacheKey, result, TimeSpan.FromMinutes(30)); // Cache for 30 minutes
                                          _logger.LogInformation("Products fetched and cached successfully");
+                                         stopwatch.Stop();
+                                         ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
                                          return result;
                                      }
                                      else
                                      {
                                          _logger.LogWarning("Product response is null");
+                                         stopwatch.Stop();
+                                         ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
                                          return Result<ProductResponse>.Failure("Product response is null");
                                      }
                                  }
@@ -100,12 +120,16 @@ namespace Bpn.ECommerce.Infrastructure.Services
                                  {
                                      var errorResponse = await response.Content.ReadFromJsonAsync<ErrorResponse>();
                                      _logger.LogError("Internal server error: {Message}", errorResponse?.Message);
+                                     stopwatch.Stop();
+                                     ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
                                      return Result<ProductResponse>.Failure((int)response.StatusCode, errorResponse?.Message ?? "Internal server error");
                                  }
                                  else
                                  {
                                      var errorResponse = await response.Content.ReadFromJsonAsync<ErrorResponse>();
                                      _logger.LogError("Error occurred: {Message}", errorResponse?.Message);
+                                     stopwatch.Stop();
+                                     ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
                                      return Result<ProductResponse>.Failure((int)response.StatusCode, errorResponse?.Message ?? "An error occurred");
                                  }
                              }).ContinueWith(task =>
@@ -113,10 +137,15 @@ namespace Bpn.ECommerce.Infrastructure.Services
                                  if (task.IsFaulted)
                                  {
                                      _logger.LogError(task.Exception, "An unexpected error occurred while getting products");
+                                     stopwatch.Stop();
+                                     ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
                                      return Result<ProductResponse>.Failure("An unexpected error occurred");
                                  }
+                                 stopwatch.Stop();
+                                 ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
                                  return task.Result;
                              }))));
+
         }
 
         public async Task<Result<BalanceResponse>> GetBalanceAsync()

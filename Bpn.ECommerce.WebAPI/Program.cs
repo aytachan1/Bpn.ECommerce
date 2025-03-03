@@ -13,6 +13,13 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.OpenApi.Models;
 using Serilog;
+using OpenTelemetry.Exporter;
+using OpenTelemetry.Instrumentation.AspNetCore;
+using OpenTelemetry.Logs;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,6 +30,24 @@ Log.Logger = new LoggerConfiguration()
     .CreateLogger();
 
 builder.Host.UseSerilog();
+
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracerProviderBuilder =>
+    {
+        tracerProviderBuilder
+            .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("Bpn.ECommerce"))
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddConsoleExporter();
+    })
+    .WithMetrics(meterProviderBuilder =>
+    {
+        meterProviderBuilder
+            .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("Bpn.ECommerce"))
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddPrometheusExporter();
+    });
 
 builder.Services.AddResponseCompression(options =>
 {
@@ -117,4 +142,5 @@ app.MapHealthChecks("/health-check", new HealthCheckOptions
     }
 });
 
+app.UseOpenTelemetryPrometheusScrapingEndpoint();
 app.Run();
