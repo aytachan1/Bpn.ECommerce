@@ -352,6 +352,77 @@ namespace Bpn.ECommerce.Tests.Unit.ServiceUnitTests
             Assert.False(result.IsSuccessful);
             Assert.Contains(errorMessage, result.ErrorMessages);
         }
-    }
 
+        [Fact]
+        public async Task GetProductsAsync_ShouldRetryOnFailure()
+        {
+            // Arrange
+            var errorMessage = "Service unavailable";
+            var httpResponseMessage = new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+            {
+                Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(new { Message = errorMessage }))
+            };
+            _httpMessageHandlerMock.Protected()
+                .SetupSequence<Task<HttpResponseMessage>>(
+                    "SendAsync",
+                    ItExpr.IsAny<HttpRequestMessage>(),
+                    ItExpr.IsAny<CancellationToken>())
+                .ReturnsAsync(httpResponseMessage)
+                .ReturnsAsync(httpResponseMessage)
+                .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(new ProductResponse
+                    {
+                        Success = true,
+                        Data = new List<ProductEntity>
+                        {
+                        new ProductEntity { Id = Guid.NewGuid(), Name = "Product1", Price = 100 },
+                        new ProductEntity { Id = Guid.NewGuid(), Name = "Product2", Price = 200 }
+                        }
+                    }))
+                });
+
+            // Act
+            var result = await _service.GetProductsAsync();
+
+            // Assert
+            Assert.True(result.IsSuccessful);
+            Assert.Equal(2, result.Data.Data.Count);
+            _httpMessageHandlerMock.Protected().Verify(
+                "SendAsync",
+                Times.Exactly(3),
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GetProductsAsync_ShouldReturnFailure_WhenAllRetriesFail()
+        {
+            // Arrange
+            var errorMessage = "Service unavailable";
+            var httpResponseMessage = new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+            {
+                Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(new { Message = errorMessage }))
+            };
+            _httpMessageHandlerMock.Protected()
+                .Setup<Task<HttpResponseMessage>>(
+                    "SendAsync",
+                    ItExpr.IsAny<HttpRequestMessage>(),
+                    ItExpr.IsAny<CancellationToken>())
+                .ReturnsAsync(httpResponseMessage);
+
+            // Act
+            var result = await _service.GetProductsAsync();
+
+            // Assert
+            Assert.False(result.IsSuccessful);
+            Assert.Contains(errorMessage, result.ErrorMessages);
+            _httpMessageHandlerMock.Protected().Verify(
+                "SendAsync",
+                Times.Exactly(3),
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>());
+        }
+        //retry fail unit testleri diger metdlar icinde ayni
+    }
 }

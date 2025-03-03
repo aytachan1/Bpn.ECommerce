@@ -1,6 +1,8 @@
-﻿using Bpn.ECommerce.Application.Services;
+﻿using Bpn.ECommerce.Application.Features.Balance.Queries;
+using Bpn.ECommerce.Application.Services;
 using Bpn.ECommerce.Domain.Entities;
 using Bpn.ECommerce.Domain.Generic.Result;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Polly;
 using Polly.Retry;
@@ -13,11 +15,13 @@ namespace Bpn.ECommerce.Infrastructure.Services
         private readonly HttpClient _httpClient;
         private readonly ILogger<BalanceManagementService> _logger;
         private readonly AsyncRetryPolicy _retryPolicy;
+        private readonly IMemoryCache _cache;
 
-        public BalanceManagementService(HttpClient httpClient, ILogger<BalanceManagementService> logger)
+        public BalanceManagementService(HttpClient httpClient, ILogger<BalanceManagementService> logger, IMemoryCache cache)
         {
             _httpClient = httpClient;
             _logger = logger;
+            _cache = cache;
 
             _retryPolicy = Policy
                 .Handle<HttpRequestException>()
@@ -30,6 +34,11 @@ namespace Bpn.ECommerce.Infrastructure.Services
 
         public async Task<Result<ProductResponse>> GetProductsAsync()
         {
+            var cacheKey = "products";
+            if (_cache.TryGetValue(cacheKey, out var cachedProductsObj) && cachedProductsObj is Result<ProductResponse> cachedProducts)
+            {
+                return cachedProducts;
+            }
             return await _retryPolicy.ExecuteAsync(async () =>
             {
                 var response = await _httpClient.GetAsync("https://balance-management-pi44.onrender.com/api/products");
@@ -38,7 +47,9 @@ namespace Bpn.ECommerce.Infrastructure.Services
                     var productResponse = await response.Content.ReadFromJsonAsync<ProductResponse>();
                     if (productResponse != null)
                     {
-                        return Result<ProductResponse>.Succeed(productResponse);
+                        var result = Result<ProductResponse>.Succeed(productResponse);
+                        _cache.Set(cacheKey, result, TimeSpan.FromMinutes(30)); // Cache for 30 minutes
+                        return result;
                     }
                     else
                     {
@@ -68,15 +79,23 @@ namespace Bpn.ECommerce.Infrastructure.Services
 
         public async Task<Result<BalanceResponse>> GetBalanceAsync()
         {
+            var cacheKey = "user_balance";
+            if (_cache.TryGetValue(cacheKey, out var cachedBalanceObj) && cachedBalanceObj is Result<BalanceResponse> cachedBalance)
+            {
+                return cachedBalance;
+            }
             return await _retryPolicy.ExecuteAsync(async () =>
             {
+
                 var response = await _httpClient.GetAsync("https://balance-management-pi44.onrender.com/api/balance");
                 if (response.IsSuccessStatusCode)
                 {
                     var balanceResponse = await response.Content.ReadFromJsonAsync<BalanceResponse>();
                     if (balanceResponse != null)
                     {
-                        return Result<BalanceResponse>.Succeed(balanceResponse);
+                        var result = Result<BalanceResponse>.Succeed(balanceResponse);
+                        _cache.Set(cacheKey, result, TimeSpan.FromMinutes(30)); // 30 dk cache tut
+                        return result;
                     }
                     else
                     {
@@ -242,5 +261,7 @@ namespace Bpn.ECommerce.Infrastructure.Services
                 return task.Result;
             });
         }
+
+       
     }
 }

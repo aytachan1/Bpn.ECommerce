@@ -56,6 +56,21 @@ namespace Bpn.ECommerce.Infrastructure.Services
                 Stock = 10 // Example stock
             };
         }
+
+        public bool HasDuplicateProductIds(List<OrderItem> orderList, out Guid duplicateProductId)
+        {
+            var productIdSet = new HashSet<Guid>();
+            foreach (var item in orderList)
+            {
+                if (!productIdSet.Add(item.ProductId))
+                {
+                    duplicateProductId = item.ProductId;
+                    return true;
+                }
+            }
+            duplicateProductId = Guid.Empty;
+            return false;
+        }
     }
 
 }

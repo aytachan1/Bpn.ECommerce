@@ -29,14 +29,9 @@ namespace Bpn.ECommerce.WebAPI.Controllers
                 return BadRequest("Order list can not be null");
             }
 
-            //duplicatae check valditore taşınacak
-            var productIdSet = new HashSet<Guid>();
-            foreach (var item in orderList)
+            if (_orderCalculationService.HasDuplicateProductIds(orderList, out var duplicateProductId))
             {
-                if (!productIdSet.Add(item.ProductId))
-                {
-                    return BadRequest($"Duplicate ProductId found: {item.ProductId}");
-                }
+                return BadRequest($"Duplicate ProductId found: {duplicateProductId}");
             }
             var totalPriceResult = _orderCalculationService.CalculateTotalPrice(orderList);
             if (!totalPriceResult.IsSuccessful)

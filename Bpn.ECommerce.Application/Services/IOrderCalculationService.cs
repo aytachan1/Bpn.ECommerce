@@ -15,5 +15,7 @@ namespace Bpn.ECommerce.Application.Services
         Result<decimal> GetProductPriceById(Guid productId, int quantity);
         ProductEntity GetProductById(Guid productId);
 
+        public bool HasDuplicateProductIds(List<OrderItem> orderList, out Guid duplicateProductId);
+
     }
 }
