@@ -80,7 +80,7 @@ namespace Bpn.ECommerce.WebAPI.Controllers
             {
                 return Ok(result);
             }
-            //Complete order başarısız olması durumunda ödemeyi geri al
+            //Complete order başarısız olması durumunda cancel preorder çalıştırır
             await _mediator.Publish(new PaymentFailedNotification { OrderId = id }, cancellationToken);
             return StatusCode(result.StatusCode, result.ErrorMessages);
         }

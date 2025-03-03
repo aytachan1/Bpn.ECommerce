@@ -2,6 +2,7 @@
 using Bpn.ECommerce.Domain.Entities;
 using Bpn.ECommerce.Domain.Generic.Result;
 using Bpn.ECommerce.Infrastructure.Services;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Moq.Protected;
@@ -20,6 +21,7 @@ namespace Bpn.ECommerce.Tests.Unit.ServiceUnitTests
         private readonly Mock<ILogger<BalanceManagementService>> _loggerMock;
         private readonly HttpClient _httpClient;
         private readonly BalanceManagementService _service;
+        private readonly IMemoryCache _cache;
 
         public BalanceManagementServiceTests()
         {
@@ -29,7 +31,7 @@ namespace Bpn.ECommerce.Tests.Unit.ServiceUnitTests
             {
                 BaseAddress = new Uri("https://balance-management-pi44.onrender.com")
             };
-            _service = new BalanceManagementService(_httpClient, _loggerMock.Object);
+            _service = new BalanceManagementService(_httpClient, _loggerMock.Object, _cache);
         }
 
         [Fact]
