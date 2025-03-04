@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Bpn.ECommerce.Domain.Entities
+namespace Bpn.ECommerce.Domain.Entities.Balance
 {
 
     public class BalanceResponse

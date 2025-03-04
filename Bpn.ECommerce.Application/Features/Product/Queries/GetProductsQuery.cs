@@ -1,5 +1,5 @@
 ﻿using MediatR;
-using Bpn.ECommerce.Domain.Entities;
+using Bpn.ECommerce.Domain.Entities.Product;
 
 namespace Bpn.ECommerce.Application.Features.Product.Queries
 {

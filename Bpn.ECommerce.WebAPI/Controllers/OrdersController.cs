@@ -2,12 +2,12 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Bpn.ECommerce.WebAPI.Abstractions;
-using Bpn.ECommerce.Domain.Entities;
 using FluentValidation;
 using Bpn.ECommerce.Application.Services;
 using Bpn.ECommerce.Infrastructure.Services;
 using Bpn.ECommerce.Application.Features.Balance.Notifications;
 using Bpn.ECommerce.Application.Features.Balance.Queries;
+using Bpn.ECommerce.Domain.Entities.Order;
 
 namespace Bpn.ECommerce.WebAPI.Controllers
 {

@@ -3,7 +3,7 @@ using Bpn.ECommerce.Application.Services;
 using Microsoft.Extensions.Logging;
 using System.Threading;
 using System.Threading.Tasks;
-using Bpn.ECommerce.Domain.Entities;
+using Bpn.ECommerce.Domain.Entities.Order;
 
 namespace Bpn.ECommerce.Application.Features.Balance.Notifications
 {

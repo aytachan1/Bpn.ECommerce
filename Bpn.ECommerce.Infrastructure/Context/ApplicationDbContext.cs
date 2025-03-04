@@ -1,4 +1,4 @@
-﻿using Bpn.ECommerce.Domain.Entities;
+﻿using Bpn.ECommerce.Domain.Entities.User;
 using Bpn.ECommerce.Domain.Generic.Repository;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;

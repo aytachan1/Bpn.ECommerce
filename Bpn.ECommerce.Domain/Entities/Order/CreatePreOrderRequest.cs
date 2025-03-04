@@ -4,10 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Bpn.ECommerce.Domain.Entities
+namespace Bpn.ECommerce.Domain.Entities.Order
 {
-    public class PreOrderRequest
+    public class CreatePreOrderRequest
     {
+        public decimal Amount { get; set; }
         public string? OrderId { get; set; }
     }
 }

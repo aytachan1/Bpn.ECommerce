@@ -1,5 +1,6 @@
 ﻿using Bpn.ECommerce.Application.Services;
-using Bpn.ECommerce.Domain.Entities;
+using Bpn.ECommerce.Domain.Entities.Order;
+using Bpn.ECommerce.Domain.Entities.Product;
 using Bpn.ECommerce.Domain.Generic.Result;
 using System;
 using System.Collections.Generic;

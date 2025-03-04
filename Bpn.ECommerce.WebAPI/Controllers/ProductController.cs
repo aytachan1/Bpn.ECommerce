@@ -3,7 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Bpn.ECommerce.WebAPI.Abstractions;
 using Microsoft.AspNetCore.Authorization;
-using Bpn.ECommerce.Domain.Entities;
+using Bpn.ECommerce.Domain.Entities.Product;
 
 
 namespace Bpn.ECommerce.WebAPI.Controllers

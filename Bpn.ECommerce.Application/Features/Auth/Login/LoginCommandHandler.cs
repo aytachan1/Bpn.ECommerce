@@ -1,9 +1,9 @@
 ﻿using Bpn.ECommerce.Application.Services;
-using Bpn.ECommerce.Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Bpn.ECommerce.Domain.Generic.Result;
+using Bpn.ECommerce.Domain.Entities.User;
 
 namespace Bpn.ECommerce.Application.Features.Auth.Login
 {

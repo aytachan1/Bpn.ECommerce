@@ -1,6 +1,6 @@
 using Bpn.ECommerce.Application.Features.Balance.Queries;
 using Bpn.ECommerce.Application.Services;
-using Bpn.ECommerce.Domain.Entities;
+using Bpn.ECommerce.Domain.Entities.Balance;
 using Bpn.ECommerce.Domain.Generic.Result;
 using Moq;
 using System.Threading;

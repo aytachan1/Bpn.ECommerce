@@ -3,7 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using Bpn.ECommerce.Application.Features.Auth.Login;
 using Bpn.ECommerce.Application.Services;
-using Bpn.ECommerce.Domain.Entities;
+using Bpn.ECommerce.Domain.Entities.User;
 using Bpn.ECommerce.Infrastructure.Options;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;

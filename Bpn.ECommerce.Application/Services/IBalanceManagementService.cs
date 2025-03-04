@@ -1,4 +1,6 @@
-﻿using Bpn.ECommerce.Domain.Entities;
+﻿using Bpn.ECommerce.Domain.Entities.Balance;
+using Bpn.ECommerce.Domain.Entities.Order;
+using Bpn.ECommerce.Domain.Entities.Product;
 using Bpn.ECommerce.Domain.Generic.Result;
 using Microsoft.Extensions.Logging;
 using Polly;

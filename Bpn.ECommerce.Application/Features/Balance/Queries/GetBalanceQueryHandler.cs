@@ -1,8 +1,8 @@
 ﻿using MediatR;
 using Bpn.ECommerce.Application.Services;
-using Bpn.ECommerce.Domain.Entities;
 using System.Threading;
 using System.Threading.Tasks;
+using Bpn.ECommerce.Domain.Entities.Balance;
 
 namespace Bpn.ECommerce.Application.Features.Balance.Queries
 {

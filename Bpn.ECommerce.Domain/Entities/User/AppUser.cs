@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity;
 
-namespace Bpn.ECommerce.Domain.Entities
+namespace Bpn.ECommerce.Domain.Entities.User
 {
     public sealed class AppUser : IdentityUser<Guid>
     {

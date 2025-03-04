@@ -1,7 +1,9 @@
 ﻿using Bpn.ECommerce.Application.Features.Balance.Notifications;
 using Bpn.ECommerce.Application.Services;
-using Bpn.ECommerce.Domain.Entities;
+using Bpn.ECommerce.Domain.Entities.Order;
 using Bpn.ECommerce.Domain.Generic.Result;
+using Castle.Core.Logging;
+using Microsoft.Extensions.Logging;
 using Moq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,11 +15,14 @@ namespace Bpn.ECommerce.UnitTests.HandlerUnitTests
     {
         private readonly Mock<IBalanceManagementService> _balanceManagementServiceMock;
         private readonly PaymentFailedNotificationHandler _handler;
+        private readonly Mock<ILogger<PaymentFailedNotificationHandler>> _loggerMock;
 
         public PaymentFailedNotificationHandlerTests()
         {
             _balanceManagementServiceMock = new Mock<IBalanceManagementService>();
-            _handler = new PaymentFailedNotificationHandler(_balanceManagementServiceMock.Object);
+            _loggerMock = new Mock<ILogger<PaymentFailedNotificationHandler>>();
+
+            _handler = new PaymentFailedNotificationHandler(_balanceManagementServiceMock.Object, _loggerMock.Object);
         }
 
         [Fact]

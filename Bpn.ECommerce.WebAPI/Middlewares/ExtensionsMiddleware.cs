@@ -1,4 +1,4 @@
-﻿using Bpn.ECommerce.Domain.Entities;
+﻿using Bpn.ECommerce.Domain.Entities.User;
 using Microsoft.AspNetCore.Identity;
 
 namespace Bpn.ECommerce.WebAPI.Middlewares

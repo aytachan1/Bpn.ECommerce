@@ -1,10 +1,11 @@
-﻿using System;
+﻿using Bpn.ECommerce.Domain.Entities.Balance;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Bpn.ECommerce.Domain.Entities
+namespace Bpn.ECommerce.Domain.Entities.Order
 {
     public class PreOrderResponse
     {
@@ -19,5 +20,5 @@ namespace Bpn.ECommerce.Domain.Entities
         public BalanceData? UpdatedBalance { get; set; }
     }
 
-   
+
 }

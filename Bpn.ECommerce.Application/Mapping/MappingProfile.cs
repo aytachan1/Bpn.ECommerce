@@ -6,7 +6,7 @@ namespace Bpn.ECommerce.Application.Mapping
     {
         public MappingProfile()
         {
-
+            //ileride database işlemleri yapılacaksa burada map işlemleri yapılacak
         }
     }
 }

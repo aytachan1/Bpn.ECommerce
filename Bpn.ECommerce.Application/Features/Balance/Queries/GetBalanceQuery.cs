@@ -1,4 +1,4 @@
-﻿using Bpn.ECommerce.Domain.Entities;
+﻿using Bpn.ECommerce.Domain.Entities.Balance;
 using MediatR;
 using System;
 using System.Collections.Generic;

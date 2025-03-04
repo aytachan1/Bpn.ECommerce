@@ -1,6 +1,6 @@
 ﻿using Bpn.ECommerce.Application.Features.Product.Queries;
 using Bpn.ECommerce.Application.Services;
-using Bpn.ECommerce.Domain.Entities;
+using Bpn.ECommerce.Domain.Entities.Product;
 using Bpn.ECommerce.Domain.Generic.Result;
 using Moq;
 using System.Collections.Generic;
@@ -27,8 +27,8 @@ namespace Bpn.ECommerce.UnitTests.HandlerUnitTests
             // Arrange
             var productList = new List<ProductEntity>
             {
-                new ProductEntity { Id = Guid.NewGuid(), Name = "Product1", Price = 100 },
-                new ProductEntity { Id = Guid.NewGuid(), Name = "Product2", Price = 200 }
+                new ProductEntity { Id = "test123", Name = "Product1", Price = 100 },
+                new ProductEntity { Id = "test12", Name = "Product2", Price = 200 }
             };
             var productResponse = new ProductResponse
             {

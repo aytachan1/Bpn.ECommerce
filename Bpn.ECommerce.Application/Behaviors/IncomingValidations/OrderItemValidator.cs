@@ -1,5 +1,5 @@
 ﻿using Bpn.ECommerce.Application.Features.Balance.Commands;
-using Bpn.ECommerce.Domain.Entities;
+using Bpn.ECommerce.Domain.Entities.Order;
 using FluentValidation;
 namespace Bpn.ECommerce.Application.Behaviors.IncomingValidations
 {

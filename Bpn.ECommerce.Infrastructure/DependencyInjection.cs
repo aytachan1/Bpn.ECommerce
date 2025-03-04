@@ -1,5 +1,4 @@
 ﻿using System.Reflection;
-using Bpn.ECommerce.Domain.Entities;
 using Bpn.ECommerce.Infrastructure.Context;
 using Bpn.ECommerce.Infrastructure.Options;
 using Bpn.ECommerce.Domain.Generic.Repository;
@@ -12,6 +11,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Scrutor;
 using Bpn.ECommerce.Application.Services;
 using Bpn.ECommerce.Infrastructure.Services;
+using Bpn.ECommerce.Domain.Entities.User;
 
 namespace Bpn.ECommerce.Infrastructure
 {
@@ -57,6 +57,7 @@ namespace Bpn.ECommerce.Infrastructure
             }).AddJwtBearer();
             services.AddAuthorization();
 
+            //auto register services
             services.Scan(action =>
             {
                 action

@@ -1,5 +1,5 @@
 ﻿using Bpn.ECommerce.Application.Features.Auth.Login;
-using Bpn.ECommerce.Domain.Entities;
+using Bpn.ECommerce.Domain.Entities.User;
 
 namespace Bpn.ECommerce.Application.Services
 {

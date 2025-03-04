@@ -1,6 +1,6 @@
 ﻿using Bpn.ECommerce.Application.Features.Balance.Commands;
 using Bpn.ECommerce.Application.Services;
-using Bpn.ECommerce.Domain.Entities;
+using Bpn.ECommerce.Domain.Entities.Order;
 using Bpn.ECommerce.Domain.Generic.Result;
 using Moq;
 using System.Threading;

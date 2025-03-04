@@ -25,4 +25,8 @@
     <ProjectReference Include="..\Bpn.ECommerce.Application\Bpn.ECommerce.Application.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="ServiceUnitTests\" />
+  </ItemGroup>
+
 </Project>

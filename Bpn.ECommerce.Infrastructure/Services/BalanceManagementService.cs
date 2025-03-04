@@ -1,6 +1,5 @@
 ﻿using Bpn.ECommerce.Application.Features.Balance.Queries;
 using Bpn.ECommerce.Application.Services;
-using Bpn.ECommerce.Domain.Entities;
 using Bpn.ECommerce.Domain.Generic.Result;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -18,6 +17,10 @@ using System.Diagnostics;
 using Azure.Core.Pipeline;
 using System.Text.Json.Serialization;
 using System.Text.Json;
+using Bpn.ECommerce.Domain.Entities.Product;
+using Bpn.ECommerce.Domain.Entities.Order;
+using Bpn.ECommerce.Domain.Entities.Balance;
+using Bpn.ECommerce.Domain.Entities.Error;
 
 namespace Bpn.ECommerce.Infrastructure.Services
 {
@@ -35,12 +38,19 @@ namespace Bpn.ECommerce.Infrastructure.Services
         private readonly AsyncBulkheadPolicy _bulkheadPolicy;
         private readonly AsyncTimeoutPolicy _timeoutPolicy;
 
-        // private readonly AsyncFallbackPolicy<Result<ProductResponse>> _fallbackPolicy; simdilik eklemiyorum belki dagitik yapıda kullanılabilir bunu odemeiptali icinde kullanabilicek bir stratejide yazabiliriz
+        // private readonly AsyncFallbackPolicy<Result<ProductResponse>> _fallbackPolicy; 
         private readonly IMemoryCache _cache;
         private static readonly ActivitySource ActivitySource = new("Bpn.ECommerce.Infrastructure.Services.BalanceManagementService");
         private static readonly Meter Meter = new("Bpn.ECommerce.Infrastructure.Services.BalanceManagementService");
         private static readonly Counter<int> RequestCounter = Meter.CreateCounter<int>("balance_management_requests");
         private static readonly Histogram<double> ResponseTimeHistogram = Meter.CreateHistogram<double>("balance_management_response_time", "ms", "Response time in milliseconds");
+
+        private const string ProductsApiUrl = "https://balance-management-pi44.onrender.com/api/products";
+        private const string BalanceApiUrl = "https://balance-management-pi44.onrender.com/api/balance";
+        private const string PreOrderApiUrl = "https://balance-management-pi44.onrender.com/api/balance/preorder";
+        private const string CompleteOrderApiUrl = "https://balance-management-pi44.onrender.com/api/balance/complete";
+        private const string CancelOrderApiUrl = "https://balance-management-pi44.onrender.com/api/balance/cancel";
+
 
         public BalanceManagementService(HttpClient httpClient, ILogger<BalanceManagementService> logger, IMemoryCache cache)
         {
@@ -132,7 +142,7 @@ namespace Bpn.ECommerce.Infrastructure.Services
                           _timeoutPolicy.ExecuteAsync(async () =>
                           {
                                  _logger.LogInformation("Fetching products from API : GetSessionInfo()");
-                                 var response = await _httpClient.GetAsync("https://balance-management-pi44.onrender.com/api/products");
+                                 var response = await _httpClient.GetAsync(ProductsApiUrl);
                                  if (response.IsSuccessStatusCode)
                                  {
 
@@ -196,7 +206,7 @@ namespace Bpn.ECommerce.Infrastructure.Services
                              _timeoutPolicy.ExecuteAsync(async () =>
                              {
                                  _logger.LogInformation("Fetching balance from API : GetSessionInfo()");
-                                 var response = await _httpClient.GetAsync("https://balance-management-pi44.onrender.com/api/balance");
+                                 var response = await _httpClient.GetAsync(BalanceApiUrl);
                                  if (response.IsSuccessStatusCode)
                                  {
                                      var balanceResponse = await response.Content.ReadFromJsonAsync<BalanceResponse>();
@@ -256,14 +266,14 @@ namespace Bpn.ECommerce.Infrastructure.Services
             using var activity = ActivitySource.StartActivity("CreatePreOrderAsync");
             RequestCounter.Add(1);
             var stopwatch = Stopwatch.StartNew();
-            _logger.LogInformation("CreatePreOrderAsync started");
+            _logger.LogInformation("CreatePreOrderAsync started for  OrderId: {OrderId}", request.OrderId);
 
             return await _bulkheadPolicy.ExecuteAsync(() =>
                      _circuitBreakerPolicyForPreOrder.ExecuteAsync(() =>
                          _retryPolicyForPreOrder.ExecuteAsync(() =>
                              _timeoutPolicy.ExecuteAsync(async () =>
                              {
-                                 var response = await _httpClient.PostAsJsonAsync("https://balance-management-pi44.onrender.com/api/balance/preorder", request);
+                                 var response = await _httpClient.PostAsJsonAsync(PreOrderApiUrl, request);
                                  if (response.IsSuccessStatusCode)
                                  {
                                      var preOrderResponse = await response.Content.ReadFromJsonAsync<PreOrderResponse>();
@@ -271,14 +281,14 @@ namespace Bpn.ECommerce.Infrastructure.Services
                                      {
                                          stopwatch.Stop();
                                          ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
-                                         _logger.LogInformation("CreatePreOrderAsync completed successfully");
+                                         _logger.LogInformation("CreatePreOrderAsync completed successfully for  OrderId: {OrderId}", request.OrderId);
                                          return Result<PreOrderResponse>.Succeed(preOrderResponse);
                                      }
                                      else
                                      {
                                          stopwatch.Stop();
                                          ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
-                                         _logger.LogWarning("PreOrder response is null");
+                                         _logger.LogWarning("PreOrder response is null for  OrderId: {OrderId}", request.OrderId);
                                          return Result<PreOrderResponse>.Failure("PreOrder response is null");
                                      }
                                  }
@@ -287,35 +297,25 @@ namespace Bpn.ECommerce.Infrastructure.Services
                                      var errorResponse = await response.Content.ReadFromJsonAsync<ErrorResponse>();
                                      stopwatch.Stop();
                                      ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
-                                     return Result<PreOrderResponse>.Failure((int)response.StatusCode, errorResponse?.Message ?? "Bad request");
+                                     _logger.LogWarning("CreatePreOrderAsync Bad request for  OrderId: {OrderId}", request.OrderId);
+                                     return Result<PreOrderResponse>.Failure((int)response.StatusCode, errorResponse?.Message ?? "Bad request for " + request.OrderId );
                                  }
                                  else if (response.StatusCode == System.Net.HttpStatusCode.InternalServerError)
                                  {
                                      var errorResponse = await response.Content.ReadFromJsonAsync<ErrorResponse>();
                                      stopwatch.Stop();
                                      ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
-                                     return Result<PreOrderResponse>.Failure((int)response.StatusCode, errorResponse?.Message ?? "Internal server error");
+                                     _logger.LogWarning("CreatePreOrderAsync Internal server error for  OrderId: {OrderId}", request.OrderId);
+                                     return Result<PreOrderResponse>.Failure((int)response.StatusCode, errorResponse?.Message ?? "Internal server error for " + request.OrderId);
                                  }
                                  else
                                  {
                                      var errorResponse = await response.Content.ReadFromJsonAsync<ErrorResponse>();
                                      stopwatch.Stop();
                                      ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
-                                     return Result<PreOrderResponse>.Failure((int)response.StatusCode, errorResponse?.Message ?? "An error occurred");
+                                     _logger.LogWarning("CreatePreOrderAsync An error occurred for  OrderId: {OrderId}", request.OrderId);
+                                     return Result<PreOrderResponse>.Failure((int)response.StatusCode, errorResponse?.Message ?? "An error occurred for " + request.OrderId );
                                  }
-                             }).ContinueWith(task =>
-                             {
-                                 if (task.IsFaulted)
-                                 {
-                                     _logger.LogError(task.Exception, "An unexpected error occurred while creating pre-order");
-                                     stopwatch.Stop();
-                                     ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
-                                     return Result<PreOrderResponse>.Failure("An unexpected error occurred");
-                                 }
-                                 stopwatch.Stop();
-                                 ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
-                                 _logger.LogInformation("CreatePreOrderAsync completed");
-                                 return task.Result;
                              }))));
 
         }
@@ -325,14 +325,14 @@ namespace Bpn.ECommerce.Infrastructure.Services
             using var activity = ActivitySource.StartActivity("UpdatePreOrderAsync");
             RequestCounter.Add(1);
             var stopwatch = Stopwatch.StartNew();
-            _logger.LogInformation("UpdatePreOrderAsync started");
+            _logger.LogInformation("UpdatePreOrderAsync started for " + request.OrderId);
 
             return await _bulkheadPolicy.ExecuteAsync(() =>
                     _circuitBreakerPolicyForPreOrder.ExecuteAsync(() =>
                         _retryPolicyForPreOrder.ExecuteAsync(() =>
                             _timeoutPolicy.ExecuteAsync(async () =>
                             {
-                                var response = await _httpClient.PostAsJsonAsync("https://balance-management-pi44.onrender.com/api/balance/complete", request);
+                                var response = await _httpClient.PostAsJsonAsync(CompleteOrderApiUrl, request);
                                 if (response.IsSuccessStatusCode)
                                 {
                                     var updatePreOrderResponse = await response.Content.ReadFromJsonAsync<PreOrderResponse>();
@@ -340,7 +340,7 @@ namespace Bpn.ECommerce.Infrastructure.Services
                                     {
                                         stopwatch.Stop();
                                         ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
-                                        _logger.LogInformation("UpdatePreOrderAsync completed successfully");
+                                        _logger.LogInformation("UpdatePreOrderAsync completed successfully for " + request.OrderId );
                                         return Result<PreOrderResponse>.Succeed(updatePreOrderResponse);
                                     }
                                     else
@@ -348,7 +348,7 @@ namespace Bpn.ECommerce.Infrastructure.Services
                                         stopwatch.Stop();
                                         ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
                                         _logger.LogWarning("UpdatePreOrder response is null");
-                                        return Result<PreOrderResponse>.Failure("UpdatePreOrder response is null");
+                                        return Result<PreOrderResponse>.Failure("UpdatePreOrder response is null for " + request.OrderId );
                                     }
                                 }
                                 else if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
@@ -356,42 +356,30 @@ namespace Bpn.ECommerce.Infrastructure.Services
                                     var errorResponse = await response.Content.ReadFromJsonAsync<ErrorResponse>();
                                     stopwatch.Stop();
                                     ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
-                                    return Result<PreOrderResponse>.Failure((int)response.StatusCode, errorResponse?.Message ?? "Bad request");
+                                    _logger.LogWarning("UpdatePreOrderAsync Bad request for " + request.OrderId);
+                                    return Result<PreOrderResponse>.Failure((int)response.StatusCode, errorResponse?.Message ?? "Bad request for " + request.OrderId);
                                 }
                                 else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                                 {
                                     var errorResponse = await response.Content.ReadFromJsonAsync<ErrorResponse>();
                                     stopwatch.Stop();
                                     ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
-                                    return Result<PreOrderResponse>.Failure((int)response.StatusCode, errorResponse?.Message ?? "Page Not Found");
+                                    return Result<PreOrderResponse>.Failure((int)response.StatusCode, errorResponse?.Message ?? "Page Not Found for " + request.OrderId);
                                 }
                                 else if (response.StatusCode == System.Net.HttpStatusCode.InternalServerError)
                                 {
                                     var errorResponse = await response.Content.ReadFromJsonAsync<ErrorResponse>();
                                     stopwatch.Stop();
                                     ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
-                                    return Result<PreOrderResponse>.Failure((int)response.StatusCode, errorResponse?.Message ?? "Internal server error");
+                                    return Result<PreOrderResponse>.Failure((int)response.StatusCode, errorResponse?.Message ?? "Internal server error for " + request.OrderId);
                                 }
                                 else
                                 {
                                     var errorResponse = await response.Content.ReadFromJsonAsync<ErrorResponse>();
                                     stopwatch.Stop();
                                     ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
-                                    return Result<PreOrderResponse>.Failure((int)response.StatusCode, errorResponse?.Message ?? "An error occurred");
+                                    return Result<PreOrderResponse>.Failure((int)response.StatusCode, errorResponse?.Message ?? "An error occurred for " + request.OrderId);
                                 }
-                            }).ContinueWith(task =>
-                            {
-                                if (task.IsFaulted)
-                                {
-                                    _logger.LogError(task.Exception, "An unexpected error occurred while updating pre-order");
-                                    stopwatch.Stop();
-                                    ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
-                                    return Result<PreOrderResponse>.Failure("An unexpected error occurred");
-                                }
-                                stopwatch.Stop();
-                                ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
-                                _logger.LogInformation("UpdatePreOrderAsync completed");
-                                return task.Result;
                             }))));
 
         }
@@ -401,14 +389,14 @@ namespace Bpn.ECommerce.Infrastructure.Services
             using var activity = ActivitySource.StartActivity("RemovePreOrderAsync");
             RequestCounter.Add(1);
             var stopwatch = Stopwatch.StartNew();
-            _logger.LogInformation("RemovePreOrderAsync started");
+            _logger.LogInformation("RemovePreOrderAsync started for " + request.OrderId);
 
             return await _bulkheadPolicy.ExecuteAsync(() =>
                     _circuitBreakerPolicyForPreOrder.ExecuteAsync(() =>
                         _retryPolicyForPreOrder.ExecuteAsync(() =>
                             _timeoutPolicy.ExecuteAsync(async () =>
                             {
-                                var response = await _httpClient.PostAsJsonAsync("https://balance-management-pi44.onrender.com/api/balance/cancel", request);
+                                var response = await _httpClient.PostAsJsonAsync(CancelOrderApiUrl, request);
                                 if (response.IsSuccessStatusCode)
                                 {
                                     var removePreOrderResponse = await response.Content.ReadFromJsonAsync<PreOrderResponse>();
@@ -416,14 +404,14 @@ namespace Bpn.ECommerce.Infrastructure.Services
                                     {
                                         stopwatch.Stop();
                                         ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
-                                        _logger.LogInformation("RemovePreOrderAsync completed successfully");
+                                        _logger.LogInformation("RemovePreOrderAsync completed successfully for " + request.OrderId);
                                         return Result<PreOrderResponse>.Succeed(removePreOrderResponse);
                                     }
                                     else
                                     {
                                         stopwatch.Stop();
                                         ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
-                                        _logger.LogWarning("RemovePreOrder response is null");
+                                        _logger.LogWarning("RemovePreOrder response is null for " + request.OrderId);
                                         return Result<PreOrderResponse>.Failure("RemovePreOrder response is null");
                                     }
                                 }
@@ -432,6 +420,7 @@ namespace Bpn.ECommerce.Infrastructure.Services
                                     var errorResponse = await response.Content.ReadFromJsonAsync<ErrorResponse>();
                                     stopwatch.Stop();
                                     ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
+                                    _logger.LogWarning("Bad request for " + request.OrderId);
                                     return Result<PreOrderResponse>.Failure((int)response.StatusCode, errorResponse?.Message ?? "Bad request");
                                 }
                                 else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
@@ -439,6 +428,7 @@ namespace Bpn.ECommerce.Infrastructure.Services
                                     var errorResponse = await response.Content.ReadFromJsonAsync<ErrorResponse>();
                                     stopwatch.Stop();
                                     ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
+                                    _logger.LogWarning("Page Not Found for " + request.OrderId);
                                     return Result<PreOrderResponse>.Failure((int)response.StatusCode, errorResponse?.Message ?? "Page Not Found");
                                 }
                                 else if (response.StatusCode == System.Net.HttpStatusCode.InternalServerError)
@@ -446,6 +436,7 @@ namespace Bpn.ECommerce.Infrastructure.Services
                                     var errorResponse = await response.Content.ReadFromJsonAsync<ErrorResponse>();
                                     stopwatch.Stop();
                                     ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
+                                    _logger.LogWarning("Internal server error for " + request.OrderId);
                                     return Result<PreOrderResponse>.Failure((int)response.StatusCode, errorResponse?.Message ?? "Internal server error");
                                 }
                                 else
@@ -453,21 +444,9 @@ namespace Bpn.ECommerce.Infrastructure.Services
                                     var errorResponse = await response.Content.ReadFromJsonAsync<ErrorResponse>();
                                     stopwatch.Stop();
                                     ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
+                                    _logger.LogWarning("An error occurred for " + request.OrderId);
                                     return Result<PreOrderResponse>.Failure((int)response.StatusCode, errorResponse?.Message ?? "An error occurred");
                                 }
-                            }).ContinueWith(task =>
-                            {
-                                if (task.IsFaulted)
-                                {
-                                    _logger.LogError(task.Exception, "An unexpected error occurred while removing pre-order");
-                                    stopwatch.Stop();
-                                    ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
-                                    return Result<PreOrderResponse>.Failure("An unexpected error occurred");
-                                }
-                                stopwatch.Stop();
-                                ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
-                                _logger.LogInformation("RemovePreOrderAsync completed");
-                                return task.Result;
                             }))));
 
         }
