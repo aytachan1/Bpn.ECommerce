@@ -144,3 +144,4 @@ app.MapHealthChecks("/health-check", new HealthCheckOptions
 
 app.UseOpenTelemetryPrometheusScrapingEndpoint();
 app.Run();
+public partial class Program { }

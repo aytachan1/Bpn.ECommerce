@@ -11,7 +11,7 @@ namespace Bpn.ECommerce.Infrastructure.Services
 {
     public class OrderCalculationService : IOrderCalculationService
     {
-        public OrderCalculationService(IOrderCalculationService orderCalculationService)
+        public OrderCalculationService()
         {
                 
         }

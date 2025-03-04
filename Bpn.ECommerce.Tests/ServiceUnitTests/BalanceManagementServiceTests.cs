@@ -13,7 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
-namespace Bpn.ECommerce.Tests.Unit.ServiceUnitTests
+namespace Bpn.ECommerce.UnitTests.ServiceUnitTests
 {
     public class BalanceManagementServiceTests
     {

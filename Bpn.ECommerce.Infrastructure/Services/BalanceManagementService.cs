@@ -15,6 +15,7 @@ using OpenTelemetry.Trace;
 using OpenTelemetry.Metrics;
 using System.Diagnostics.Metrics;
 using System.Diagnostics;
+using Azure.Core.Pipeline;
 
 namespace Bpn.ECommerce.Infrastructure.Services
 {
@@ -22,10 +23,13 @@ namespace Bpn.ECommerce.Infrastructure.Services
     {
         private readonly HttpClient _httpClient;
         private readonly ILogger<BalanceManagementService> _logger;
-        private readonly AsyncRetryPolicy _retryPolicy;
+        private readonly AsyncRetryPolicy<Result<ProductResponse>> _retryPolicyForProduct;
+        private readonly AsyncRetryPolicy<Result<PreOrderResponse>> _retryPolicyForPreOrder;
+        private readonly AsyncRetryPolicy<Result<BalanceResponse>> _retryPolicyForBalance;
         private readonly AsyncCircuitBreakerPolicy _circuitBreakerPolicy;
         private readonly AsyncBulkheadPolicy _bulkheadPolicy;
         private readonly AsyncTimeoutPolicy _timeoutPolicy;
+
         // private readonly AsyncFallbackPolicy<Result<ProductResponse>> _fallbackPolicy; simdilik eklemiyorum belki dagitik yapıda kullanılabilir
         private readonly IMemoryCache _cache;
         private static readonly ActivitySource ActivitySource = new("Bpn.ECommerce.Infrastructure.Services.BalanceManagementService");
@@ -39,13 +43,10 @@ namespace Bpn.ECommerce.Infrastructure.Services
             _logger = logger;
             _cache = cache;
 
-            _retryPolicy = Policy
-                .Handle<HttpRequestException>()
-                .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
-                    (exception, timeSpan, retryCount, context) =>
-                    {
-                        _logger.LogWarning($"Retry {retryCount} encountered an error: {exception.Message}. Waiting {timeSpan} before next retry.");
-                    });
+            _retryPolicyForProduct = CreateRetryPolicy<ProductResponse>();
+            _retryPolicyForPreOrder = CreateRetryPolicy<PreOrderResponse>();
+            _retryPolicyForBalance = CreateRetryPolicy<BalanceResponse>();
+
 
             _circuitBreakerPolicy = Policy
                 .Handle<HttpRequestException>()
@@ -74,6 +75,18 @@ namespace Bpn.ECommerce.Infrastructure.Services
 
         }
 
+        private AsyncRetryPolicy<Result<T>>  CreateRetryPolicy<T>()
+        {
+            return Policy<Result<T>>
+                .HandleResult(result => !result.IsSuccessful)
+                .Or<HttpRequestException>()
+                .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
+                    (result, timeSpan, retryCount, context) =>
+                    {
+                        _logger.LogWarning($"Retry {retryCount} encountered an error: {result.Exception?.Message ?? result.Result?.ErrorMessages?.FirstOrDefault()}. Waiting {timeSpan} before next retry.");
+                    });
+        }
+
         public async Task<Result<ProductResponse>> GetProductsAsync()
         {
             using var activity = ActivitySource.StartActivity("GetProductsAsync");
@@ -91,7 +104,7 @@ namespace Bpn.ECommerce.Infrastructure.Services
             }
             return await _bulkheadPolicy.ExecuteAsync(() =>
                      _circuitBreakerPolicy.ExecuteAsync(() =>
-                         _retryPolicy.ExecuteAsync(() =>
+                         _retryPolicyForProduct.ExecuteAsync(() =>
                              _timeoutPolicy.ExecuteAsync(async () =>
                              {
                                  _logger.LogInformation("Fetching products from API : GetSessionInfo()");
@@ -102,7 +115,7 @@ namespace Bpn.ECommerce.Infrastructure.Services
                                      if (productResponse != null)
                                      {
                                          var result = Result<ProductResponse>.Succeed(productResponse);
-                                         _cache.Set(cacheKey, result, TimeSpan.FromMinutes(30)); // Cache for 30 minutes
+                                         _cache.Set(cacheKey, result, TimeSpan.FromMinutes(60)); // Cache for 60 minutes
                                          _logger.LogInformation("Products fetched and cached successfully");
                                          stopwatch.Stop();
                                          ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
@@ -167,7 +180,7 @@ namespace Bpn.ECommerce.Infrastructure.Services
             }
             return await _bulkheadPolicy.ExecuteAsync(() =>
                      _circuitBreakerPolicy.ExecuteAsync(() =>
-                         _retryPolicy.ExecuteAsync(() =>
+                         _retryPolicyForBalance.ExecuteAsync(() =>
                              _timeoutPolicy.ExecuteAsync(async () =>
                              {
                                  _logger.LogInformation("Fetching balance from API : GetSessionInfo()");
@@ -235,7 +248,7 @@ namespace Bpn.ECommerce.Infrastructure.Services
 
             return await _bulkheadPolicy.ExecuteAsync(() =>
                      _circuitBreakerPolicy.ExecuteAsync(() =>
-                         _retryPolicy.ExecuteAsync(() =>
+                         _retryPolicyForPreOrder.ExecuteAsync(() =>
                              _timeoutPolicy.ExecuteAsync(async () =>
                              {
                                  var response = await _httpClient.PostAsJsonAsync("https://balance-management-pi44.onrender.com/api/balance/preorder", request);
@@ -304,7 +317,7 @@ namespace Bpn.ECommerce.Infrastructure.Services
 
             return await _bulkheadPolicy.ExecuteAsync(() =>
                     _circuitBreakerPolicy.ExecuteAsync(() =>
-                        _retryPolicy.ExecuteAsync(() =>
+                        _retryPolicyForPreOrder.ExecuteAsync(() =>
                             _timeoutPolicy.ExecuteAsync(async () =>
                             {
                                 var response = await _httpClient.PostAsJsonAsync("https://balance-management-pi44.onrender.com/api/balance/complete", request);
@@ -380,7 +393,7 @@ namespace Bpn.ECommerce.Infrastructure.Services
 
             return await _bulkheadPolicy.ExecuteAsync(() =>
                     _circuitBreakerPolicy.ExecuteAsync(() =>
-                        _retryPolicy.ExecuteAsync(() =>
+                        _retryPolicyForPreOrder.ExecuteAsync(() =>
                             _timeoutPolicy.ExecuteAsync(async () =>
                             {
                                 var response = await _httpClient.PostAsJsonAsync("https://balance-management-pi44.onrender.com/api/balance/cancel", request);

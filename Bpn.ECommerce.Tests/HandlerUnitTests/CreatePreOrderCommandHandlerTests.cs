@@ -9,7 +9,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Bpn.ECommerce.Tests.Unit.HandlerUnitTests
+namespace Bpn.ECommerce.UnitTests.HandlerUnitTests
 {
     public class CreatePreOrderCommandHandlerTests
     {

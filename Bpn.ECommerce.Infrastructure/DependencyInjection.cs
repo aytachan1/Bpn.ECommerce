@@ -21,7 +21,13 @@ namespace Bpn.ECommerce.Infrastructure
         {
             services.AddDbContext<ApplicationDbContext>(options =>
             {
-                options.UseSqlServer(configuration.GetConnectionString("SqlServer"));
+                options.UseSqlServer(configuration.GetConnectionString("SqlServer"), sqlOptions =>
+                {
+                    sqlOptions.EnableRetryOnFailure(
+                        maxRetryCount: 5,
+                        maxRetryDelay: TimeSpan.FromSeconds(30),
+                        errorNumbersToAdd: null);
+                });
             });
 
             services.AddScoped<IUnitOfWork>(srv => srv.GetRequiredService<ApplicationDbContext>());
@@ -62,6 +68,7 @@ namespace Bpn.ECommerce.Infrastructure
                 .WithScopedLifetime();
             });
 
+            services.AddMemoryCache();
 
             services.AddHealthChecks()
             .AddCheck("health-check", () => HealthCheckResult.Healthy())

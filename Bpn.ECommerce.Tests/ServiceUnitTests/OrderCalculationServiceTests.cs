@@ -7,7 +7,7 @@ using System;
 using System.Collections.Generic;
 using Xunit;
 
-namespace Bpn.ECommerce.Tests.Unit.ServiceUnitTests
+namespace Bpn.ECommerce.UnitTests.ServiceUnitTests
 {
     public class OrderCalculationServiceTests
     {
@@ -17,7 +17,7 @@ namespace Bpn.ECommerce.Tests.Unit.ServiceUnitTests
         public OrderCalculationServiceTests()
         {
             _orderCalculationServiceMock = new Mock<IOrderCalculationService>();
-            _sut = new OrderCalculationService(_orderCalculationServiceMock.Object);
+            _sut = new OrderCalculationService();
         }
 
         [Fact]

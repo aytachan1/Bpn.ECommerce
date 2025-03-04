@@ -7,7 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
-namespace Bpn.ECommerce.Tests.Unit.HandlerUnitTests
+namespace Bpn.ECommerce.UnitTests.HandlerUnitTests
 {
     public class UpdatePreOrderCommandHandlerTests
     {
