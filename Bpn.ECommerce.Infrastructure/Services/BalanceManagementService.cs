@@ -16,6 +16,8 @@ using OpenTelemetry.Metrics;
 using System.Diagnostics.Metrics;
 using System.Diagnostics;
 using Azure.Core.Pipeline;
+using System.Text.Json.Serialization;
+using System.Text.Json;
 
 namespace Bpn.ECommerce.Infrastructure.Services
 {
@@ -26,11 +28,14 @@ namespace Bpn.ECommerce.Infrastructure.Services
         private readonly AsyncRetryPolicy<Result<ProductResponse>> _retryPolicyForProduct;
         private readonly AsyncRetryPolicy<Result<PreOrderResponse>> _retryPolicyForPreOrder;
         private readonly AsyncRetryPolicy<Result<BalanceResponse>> _retryPolicyForBalance;
-        private readonly AsyncCircuitBreakerPolicy _circuitBreakerPolicy;
+        private readonly AsyncCircuitBreakerPolicy<Result<ProductResponse>> _circuitBreakerPolicyForProduct;
+        private readonly AsyncCircuitBreakerPolicy<Result<PreOrderResponse>> _circuitBreakerPolicyForPreOrder;
+        private readonly AsyncCircuitBreakerPolicy<Result<BalanceResponse>> _circuitBreakerPolicyForBalance;
+
         private readonly AsyncBulkheadPolicy _bulkheadPolicy;
         private readonly AsyncTimeoutPolicy _timeoutPolicy;
 
-        // private readonly AsyncFallbackPolicy<Result<ProductResponse>> _fallbackPolicy; simdilik eklemiyorum belki dagitik yapıda kullanılabilir
+        // private readonly AsyncFallbackPolicy<Result<ProductResponse>> _fallbackPolicy; simdilik eklemiyorum belki dagitik yapıda kullanılabilir bunu odemeiptali icinde kullanabilicek bir stratejide yazabiliriz
         private readonly IMemoryCache _cache;
         private static readonly ActivitySource ActivitySource = new("Bpn.ECommerce.Infrastructure.Services.BalanceManagementService");
         private static readonly Meter Meter = new("Bpn.ECommerce.Infrastructure.Services.BalanceManagementService");
@@ -43,20 +48,18 @@ namespace Bpn.ECommerce.Infrastructure.Services
             _logger = logger;
             _cache = cache;
 
-            _retryPolicyForProduct = CreateRetryPolicy<ProductResponse>();
-            _retryPolicyForPreOrder = CreateRetryPolicy<PreOrderResponse>();
-            _retryPolicyForBalance = CreateRetryPolicy<BalanceResponse>();
+            _httpClient.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+            _httpClient.DefaultRequestHeaders.AcceptCharset.Add(new System.Net.Http.Headers.StringWithQualityHeaderValue("utf-8"));
 
 
-            _circuitBreakerPolicy = Policy
-                .Handle<HttpRequestException>()
-                .CircuitBreakerAsync(2, TimeSpan.FromMinutes(1),
-                    onBreak: (exception, duration) =>
-                    {
-                        _logger.LogWarning($"Circuit breaker opened for {duration.TotalSeconds} seconds due to: {exception.Message}");
-                    },
-                    onReset: () => _logger.LogInformation("Circuit breaker reset"),
-                    onHalfOpen: () => _logger.LogInformation("Circuit breaker half-open"));
+            _retryPolicyForProduct = CreateRetryPolicy<ProductResponse>(3);
+            _retryPolicyForPreOrder = CreateRetryPolicy<PreOrderResponse>(5);
+            _retryPolicyForBalance = CreateRetryPolicy<BalanceResponse>(3);
+
+            _circuitBreakerPolicyForProduct = CreateAsyncCircuitBreakerPolicy<ProductResponse>();
+            _circuitBreakerPolicyForPreOrder = CreateAsyncCircuitBreakerPolicy<PreOrderResponse>();
+            _circuitBreakerPolicyForBalance = CreateAsyncCircuitBreakerPolicy<BalanceResponse>();
+
 
             _bulkheadPolicy = Policy
                 .BulkheadAsync(10, 20,
@@ -67,7 +70,7 @@ namespace Bpn.ECommerce.Infrastructure.Services
                     });
 
             _timeoutPolicy = Policy
-               .TimeoutAsync(10, TimeoutStrategy.Pessimistic, onTimeoutAsync: (context, timespan, task) =>
+               .TimeoutAsync(10, TimeoutStrategy.Optimistic, onTimeoutAsync: (context, timespan, task) =>
                {
                    _logger.LogWarning($"Timeout after {timespan.TotalSeconds} seconds");
                    return Task.CompletedTask;
@@ -75,16 +78,37 @@ namespace Bpn.ECommerce.Infrastructure.Services
 
         }
 
-        private AsyncRetryPolicy<Result<T>>  CreateRetryPolicy<T>()
+        private AsyncRetryPolicy<Result<T>> CreateRetryPolicy<T>(int retryCount)
         {
             return Policy<Result<T>>
                 .HandleResult(result => !result.IsSuccessful)
                 .Or<HttpRequestException>()
-                .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
+                .WaitAndRetryAsync(retryCount, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
                     (result, timeSpan, retryCount, context) =>
                     {
                         _logger.LogWarning($"Retry {retryCount} encountered an error: {result.Exception?.Message ?? result.Result?.ErrorMessages?.FirstOrDefault()}. Waiting {timeSpan} before next retry.");
                     });
+        }
+
+        private AsyncCircuitBreakerPolicy<Result<T>> CreateAsyncCircuitBreakerPolicy<T>()
+        {
+            return Policy<Result<T>>
+                .HandleResult(result => !result.IsSuccessful)
+                .Or<HttpRequestException>()
+                .CircuitBreakerAsync(2, TimeSpan.FromMinutes(1),
+                    onBreak: (result, duration) =>
+                    {
+                        if (result.Exception != null)
+                        {
+                            _logger.LogWarning($"Circuit breaker opened for {duration.TotalSeconds} seconds due to: {result.Exception.Message}");
+                        }
+                        else
+                        {
+                            _logger.LogWarning($"Circuit breaker opened for {duration.TotalSeconds} seconds due to unsuccessful result: {result.Result?.ErrorMessages?.FirstOrDefault()}");
+                        }
+                    },
+                    onReset: () => _logger.LogInformation("Circuit breaker reset"),
+                    onHalfOpen: () => _logger.LogInformation("Circuit breaker half-open"));
         }
 
         public async Task<Result<ProductResponse>> GetProductsAsync()
@@ -103,14 +127,15 @@ namespace Bpn.ECommerce.Infrastructure.Services
                 return cachedProducts;
             }
             return await _bulkheadPolicy.ExecuteAsync(() =>
-                     _circuitBreakerPolicy.ExecuteAsync(() =>
+                     _circuitBreakerPolicyForProduct.ExecuteAsync(() =>
                          _retryPolicyForProduct.ExecuteAsync(() =>
-                             _timeoutPolicy.ExecuteAsync(async () =>
-                             {
+                          _timeoutPolicy.ExecuteAsync(async () =>
+                          {
                                  _logger.LogInformation("Fetching products from API : GetSessionInfo()");
                                  var response = await _httpClient.GetAsync("https://balance-management-pi44.onrender.com/api/products");
                                  if (response.IsSuccessStatusCode)
                                  {
+
                                      var productResponse = await response.Content.ReadFromJsonAsync<ProductResponse>();
                                      if (productResponse != null)
                                      {
@@ -146,19 +171,6 @@ namespace Bpn.ECommerce.Infrastructure.Services
                                      ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
                                      return Result<ProductResponse>.Failure((int)response.StatusCode, errorResponse?.Message ?? "An error occurred");
                                  }
-                             }).ContinueWith(task =>
-                             {
-                                 if (task.IsFaulted)
-                                 {
-                                     _logger.LogError(task.Exception, "An unexpected error occurred while getting products");
-                                     stopwatch.Stop();
-                                     ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
-                                     return Result<ProductResponse>.Failure("An unexpected error occurred");
-                                 }
-                                 stopwatch.Stop();
-                                 ResponseTimeHistogram.Record(stopwatch.ElapsedMilliseconds);
-                                 _logger.LogInformation("GetProductsAsync completed");
-                                 return task.Result;
                              }))));
 
         }
@@ -179,7 +191,7 @@ namespace Bpn.ECommerce.Infrastructure.Services
                 return cachedBalance;
             }
             return await _bulkheadPolicy.ExecuteAsync(() =>
-                     _circuitBreakerPolicy.ExecuteAsync(() =>
+                     _circuitBreakerPolicyForBalance.ExecuteAsync(() =>
                          _retryPolicyForBalance.ExecuteAsync(() =>
                              _timeoutPolicy.ExecuteAsync(async () =>
                              {
@@ -247,7 +259,7 @@ namespace Bpn.ECommerce.Infrastructure.Services
             _logger.LogInformation("CreatePreOrderAsync started");
 
             return await _bulkheadPolicy.ExecuteAsync(() =>
-                     _circuitBreakerPolicy.ExecuteAsync(() =>
+                     _circuitBreakerPolicyForPreOrder.ExecuteAsync(() =>
                          _retryPolicyForPreOrder.ExecuteAsync(() =>
                              _timeoutPolicy.ExecuteAsync(async () =>
                              {
@@ -316,7 +328,7 @@ namespace Bpn.ECommerce.Infrastructure.Services
             _logger.LogInformation("UpdatePreOrderAsync started");
 
             return await _bulkheadPolicy.ExecuteAsync(() =>
-                    _circuitBreakerPolicy.ExecuteAsync(() =>
+                    _circuitBreakerPolicyForPreOrder.ExecuteAsync(() =>
                         _retryPolicyForPreOrder.ExecuteAsync(() =>
                             _timeoutPolicy.ExecuteAsync(async () =>
                             {
@@ -392,7 +404,7 @@ namespace Bpn.ECommerce.Infrastructure.Services
             _logger.LogInformation("RemovePreOrderAsync started");
 
             return await _bulkheadPolicy.ExecuteAsync(() =>
-                    _circuitBreakerPolicy.ExecuteAsync(() =>
+                    _circuitBreakerPolicyForPreOrder.ExecuteAsync(() =>
                         _retryPolicyForPreOrder.ExecuteAsync(() =>
                             _timeoutPolicy.ExecuteAsync(async () =>
                             {

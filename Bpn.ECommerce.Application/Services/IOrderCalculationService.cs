@@ -12,10 +12,10 @@ namespace Bpn.ECommerce.Application.Services
     public interface IOrderCalculationService
     {
         Result<decimal> CalculateTotalPrice(List<OrderItem> orderList);
-        Result<decimal> GetProductPriceById(Guid productId, int quantity);
-        ProductEntity GetProductById(Guid productId);
+        Result<decimal> GetProductPriceById(string productId, int quantity);
+        ProductEntity GetProductById(string productId);
 
-        public bool HasDuplicateProductIds(List<OrderItem> orderList, out Guid duplicateProductId);
+        public bool HasDuplicateProductIds(List<OrderItem> orderList, out string duplicateProductId);
 
     }
 }

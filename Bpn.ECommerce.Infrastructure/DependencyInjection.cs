@@ -75,7 +75,7 @@ namespace Bpn.ECommerce.Infrastructure
             .AddDbContextCheck<ApplicationDbContext>();
 
             services.AddHttpClient<IBalanceManagementService, BalanceManagementService>();
-            services.AddHttpClient<IOrderCalculationService, OrderCalculationService>();
+            services.AddScoped<IOrderCalculationService, OrderCalculationService>();
 
 
             return services;

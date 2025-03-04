@@ -66,7 +66,7 @@ namespace Bpn.ECommerce.WebAPI.Controllers
         [HttpPost("{id}/complete")]
         public async Task<IActionResult> CompleteOrder(string id, CancellationToken cancellationToken)
         {
-            if (id != null)
+            if (id == null)
             {
                 return BadRequest("Order ID in the URL can not be null");
             }

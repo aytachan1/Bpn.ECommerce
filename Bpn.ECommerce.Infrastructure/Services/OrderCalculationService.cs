@@ -20,6 +20,10 @@ namespace Bpn.ECommerce.Infrastructure.Services
             decimal totalPrice = 0;
             foreach (var item in orderList)
             {
+                if (item.ProductId == null)
+                {
+                    return Result<decimal>.Failure("ProductId cannot be null");
+                }
                 var productPriceResult = GetProductPriceById(item.ProductId, item.Quantity);
                 if (!productPriceResult.IsSuccessful)
                 {
@@ -30,7 +34,7 @@ namespace Bpn.ECommerce.Infrastructure.Services
             return Result<decimal>.Succeed(totalPrice);
         }
 
-        public Result<decimal> GetProductPriceById(Guid productId, int quantity)
+        public Result<decimal> GetProductPriceById(string productId, int quantity)
         {
             var product = GetProductById(productId);
             if (product == null)
@@ -46,7 +50,7 @@ namespace Bpn.ECommerce.Infrastructure.Services
             return Result<decimal>.Succeed(product.Price * quantity);
         }
 
-        public ProductEntity GetProductById(Guid productId)
+        public ProductEntity GetProductById(string productId)
         {
             //Burada datayı birşekilde database e yükleyip ordan alıyoruz gibi düşünebiliriz.
             return new ProductEntity
@@ -57,18 +61,23 @@ namespace Bpn.ECommerce.Infrastructure.Services
             };
         }
 
-        public bool HasDuplicateProductIds(List<OrderItem> orderList, out Guid duplicateProductId)
+        public bool HasDuplicateProductIds(List<OrderItem> orderList, out string duplicateProductId)
         {
-            var productIdSet = new HashSet<Guid>();
+            var productIdSet = new HashSet<string>();
             foreach (var item in orderList)
             {
+                if (item.ProductId == null)
+                {
+                    duplicateProductId = "";
+                    return false;
+                }
                 if (!productIdSet.Add(item.ProductId))
                 {
                     duplicateProductId = item.ProductId;
                     return true;
                 }
             }
-            duplicateProductId = Guid.Empty;
+            duplicateProductId = "";
             return false;
         }
     }
