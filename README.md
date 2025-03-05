@@ -45,7 +45,7 @@ Bpn.ECommerce is an e-commerce application built with .NET 8. It includes variou
 ### Running the Application
 
 1. Set the `Bpn.ECommerce.WebAPI` project as the startup project.
-2. Run the application (F5 or Ctrl+F5).
+2. Run the application
 
 ### Using Swagger for API Documentation
 
