@@ -31,7 +31,7 @@ namespace Bpn.ECommerce.WebAPI.Controllers
 
             if (_orderCalculationService.HasDuplicateProductIds(orderList, out var duplicateProductId))
             {
-                return BadRequest($"Duplicate ProductId found: {duplicateProductId}");
+                return BadRequest($"Duplicate ProductId found:");
             }
             var totalPriceResult = _orderCalculationService.CalculateTotalPrice(orderList);
             if (!totalPriceResult.IsSuccessful)
