@@ -1,0 +1,28 @@
+     name: .NET Core
+
+     on: [push]
+
+     jobs:
+       build:
+         runs-on: ubuntu-latest
+
+         steps:
+         - uses: actions/checkout@v2
+         - name: Setup .NET Core
+           uses: actions/setup-dotnet@v1
+           with:
+             dotnet-version: '8.0.x'
+         - name: Install dependencies
+           run: dotnet restore
+         - name: Build
+           run: dotnet build --no-restore
+         - name: Test
+           run: dotnet test --no-build --collect:"XPlat Code Coverage"
+         - name: Report coverage
+           uses: codecov/codecov-action@v1
+           with:
+             token: ${{ secrets.CODECOV_TOKEN }}
+             files: ./TestResults/**/*.xml
+             flags: unittests
+             name: codecov-umbrella
+     
