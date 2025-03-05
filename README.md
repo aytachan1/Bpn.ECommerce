@@ -40,7 +40,7 @@ Bpn.ECommerce is an e-commerce application built with .NET 8. It includes variou
 3. Set the default project to `Bpn.ECommerce.Infrastructure` in the Package Manager Console.
 4. Run the following commands to create and update the database:"add-migration xx" and "update-database"
 
-      These commands will create the database and tables on SQL Express. If you encounter any errors, check your connection settings in `appsettings.json`.
+      These commands will create the database and tables on SQL. If you encounter any errors, check your connection settings in `appsettings.json`.
 
 ### Running the Application
 
